@@ -44,7 +44,7 @@ python app.py --rebuild  # then:
 curl -s -X POST http://localhost:8000/answer -H 'Content-Type: application/json'   -d '{"query":"What are my refund rights if my EU train is delayed by 2 hours?"}' | jq
 ```
 
-## Interview prompts you can drive
+## Prompts you can drive
 - “How would you hit **p95 < 250 ms**?” → supplier concurrency, co-location, caching, prefetching, SLM for easy Q&A, circuit breakers.
 - “What about **currencies & locales**?” → deterministic currency conversion layer, locale-aware formatting, pricing precision (decimal not float), tax/VAT.
 - “How to handle **re-pricing at checkout**?” → soft hold → re-query exact fare with supplier → idempotent booking refs.
