@@ -1,0 +1,4 @@
+Seat Reservations
+- Some high-speed trains require seat reservations; others are optional.
+- For buses, seats may be assigned automatically.
+- If traveling as a group, book together to improve chances of adjacent seats.

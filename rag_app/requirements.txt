@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+numpy
+scikit-learn
+faiss-cpu
+sentence-transformers
+pydantic<3
+openai>=1.43.0
+python-dotenv

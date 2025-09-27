@@ -1,0 +1,4 @@
+Data Privacy & Safety (RAG Guardrails)
+- Minimize personal data in logs; redact payment and contact details.
+- Provide citations for policy answers; abstain if the context lacks a definitive rule.
+- Honor data retention and deletion requests per GDPR.
