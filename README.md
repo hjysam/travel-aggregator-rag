@@ -49,26 +49,12 @@ conda activate travel
 
 ---
 
-## Install
+## Setup
+
+### Install dependencies
 
 ```bash
 pip install -r requirements.txt
-```
-
----
-
-## Configuration
-
-
-Create `aggregator_app/.env` (optional):
-
-```ini
-# aggregator_app/.env
-EXPORT_DIR=exports
-REPRICE_PROB=0.18
-REPRICE_MAX_PCT=0.12
-SOFT_HOLD_TTL_SEC=120
-# REDIS_URL=redis://localhost:6379/0
 ```
 
 ### Create .env file
@@ -76,9 +62,6 @@ SOFT_HOLD_TTL_SEC=120
 ```ini
 # One or many root folders with .txt/.md (semicolon-separated on Windows)
 DOC_ROOTS=path\path;
-
-# Enable FAISS+higher quality retrieval (optional)
-USE_FAISS=1
 
 # Azure OpenAI Embeddings (optional but recommended)
 AZURE_OPENAI_ENDPOINT=https://<your-resource>.openai.azure.com
@@ -199,10 +182,10 @@ Write-Host " - $trace.log.txt (combined)" -ForegroundColor Green
 
 ### B) Point RAG to both policies **and** the exported booking logs
 
-1. Ensure `rag_app/.env` contains **both** folders in `DOC_ROOTS` (Windows uses `;` to separate):
+1. Ensure `.env` contains **both** folders in `DOC_ROOTS` (Windows uses `;` to separate):
 
    ```
-   DOC_ROOTS=C:\Users\samuel_hon\OneDrive\Desktop\travel-aggregator-rag\rag_app\docs;C:\Users\samuel_hon\OneDrive\Desktop\travel-aggregator-rag\exports
+   DOC_ROOTS=C:\Users\samuel_hon\OneDrive\Desktop\travel-aggregator-rag\docs;C:\Users\samuel_hon\OneDrive\Desktop\travel-aggregator-rag\exports
    ```
 
 2. Rebuild the index and run the RAG app:
