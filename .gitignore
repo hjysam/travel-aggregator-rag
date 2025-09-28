@@ -1,3 +1,7 @@
-# only ignore at repo root
-/.env
-/.venv
+__pycache__/
+*.py[cod]
+*.log
+.env
+.venv/
+.DS_Store
+information.docx
