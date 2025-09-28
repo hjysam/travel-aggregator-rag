@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
+# travel-aggregator-rag\aggregator_app\app.py
 import asyncio, time, random, json, os, hashlib
 from typing import List, Dict, Any, Tuple, Optional
 from fastapi import FastAPI, Query, Header, HTTPException, Request, Response
 from pydantic import BaseModel
-from prometheus_client import Counter, Histogram, Summary, generate_latest, CONTENT_TYPE_LATEST
+from prometheus_client import (
+    Counter, Histogram, Summary,
+    CollectorRegistry, generate_latest, CONTENT_TYPE_LATEST
+)
 
-app = FastAPI(title="Omio Aggregator Demo (Obs + Trace)")
+app = FastAPI(title="Travel Aggregator Demo "
+""
+"(Obs + Trace)")
 
 # ------------ Config / toggles ------------
 REPRICE_PROB = float(os.getenv("REPRICE_PROB", "0.18"))
@@ -13,32 +19,56 @@ REPRICE_MAX_PCT = float(os.getenv("REPRICE_MAX_PCT", "0.12"))
 SOFT_HOLD_TTL_SEC = int(os.getenv("SOFT_HOLD_TTL_SEC", "120"))
 USE_REDIS = bool(os.getenv("REDIS_URL"))
 
-# ------------ Metrics ------------
-REQ_COUNT = Counter("http_requests_total", "HTTP requests", ["route", "method", "code"])
-REQ_LATENCY = Histogram("http_request_duration_seconds", "HTTP latency seconds", ["route", "method"])
-SUPPLIER_LAT_MS = Summary("supplier_latency_ms", "Supplier latency ms", ["supplier", "status"])
-BREAKER_OPEN = Counter("circuit_breaker_opens_total", "Breaker opens", ["supplier"])
+# ------------ Metrics (custom registry + app-scoped names) ------------
+PROM_REGISTRY = CollectorRegistry(auto_describe=True)
 
-# Trace-id middleware
+REQ_COUNT = Counter(
+    "travel_http_requests_total",
+    "HTTP requests",
+    ["route", "method", "code"],
+    registry=PROM_REGISTRY,
+)
+REQ_LATENCY = Histogram(
+    "travel_http_request_duration_seconds",
+    "HTTP latency seconds",
+    ["route", "method"],
+    registry=PROM_REGISTRY,
+)
+SUPPLIER_LAT_MS = Summary(
+    "travel_supplier_latency_ms",
+    "Supplier latency ms",
+    ["supplier", "status"],
+    registry=PROM_REGISTRY,
+)
+BREAKER_OPEN = Counter(
+    "travel_circuit_breaker_opens_total",
+    "Circuit breaker open events",
+    ["supplier"],
+    registry=PROM_REGISTRY,
+)
+
+# ------------ Trace-id + request metrics middleware ------------
 @app.middleware("http")
 async def add_trace_and_metrics(request: Request, call_next):
     start = time.time()
-    trace_id = request.headers.get("X-Trace-Id") or hashlib.sha1(f"{start}:{id(request)}".encode()).hexdigest()[:16]
+    trace_id = request.headers.get("X-Trace-Id") or hashlib.sha1(
+        f"{start}:{id(request)}".encode()
+    ).hexdigest()[:16]
     route = request.url.path
     method = request.method
+    response = None
     try:
         response = await call_next(request)
         code = response.status_code
-    except Exception as e:
+    except Exception:
         code = 500
         raise
     finally:
         REQ_COUNT.labels(route=route, method=method, code=str(code)).inc()
         REQ_LATENCY.labels(route=route, method=method).observe(time.time() - start)
-    # attach trace id header
-    if 'response' in locals():
-        response.headers["X-Trace-Id"] = trace_id
-        return response
+
+    response.headers["X-Trace-Id"] = trace_id
+    return response
 
 # ------------ Utilities: currency & scoring ------------
 CURRENCY_RATES = {"EUR": 1.0, "USD": 0.92, "GBP": 1.16, "SGD": 0.68}
@@ -68,7 +98,8 @@ class TokenBucket:
             if self.tokens < 1.0:
                 wait = (1.0 - self.tokens) / self.rate
                 await asyncio.sleep(wait)
-                self.tokens = 0.0
+                # after waiting, consume one token
+                self.tokens = max(0.0, self.tokens + wait*self.rate - 1.0)
                 self.updated = time.time()
             else:
                 self.tokens -= 1.0
@@ -137,8 +168,15 @@ class Supplier:
                     "transfers": rng.choice([0,0,1]),
                     "refundable": rng.choice([True, False]),
                     "fare_class": rng.choice(["Saver","Standard","Flex"]),
-                    "supplier_reliability": round(self.reliability, 2)
+                    "supplier_reliability": round(self.reliability, 2),
                 }
+
+                # 🚩 Normalize to EUR for the demo
+                eur = offer["price_eur"]
+                offer["price"] = eur
+                offer["currency"] = "EUR"
+                offer["price_eur"] = eur
+
                 offer["score"] = score_offer(offer["price_eur"], offer["duration_min"], self.reliability)
                 offers.append(offer)
             self.breaker.on_success()
@@ -199,6 +237,9 @@ def cache_set(key: str, value: Any, ttl: int = 30):
         REDIS.setex(key, ttl, json.dumps(value))
     else:
         SEARCH_CACHE.set(key, value, ttl=ttl)
+
+# ⬇️ Add this line after HOLDS/BOOKINGS definitions (or right after TTLCache)
+OFFER_INDEX = TTLCache(ttl_sec=SOFT_HOLD_TTL_SEC, max_items=10000)
 
 # ------------ Soft holds & bookings (Redis-backed if available) ------------
 def offer_id_hash(offer: Dict[str, Any]) -> str:
@@ -284,7 +325,7 @@ class ConfirmOut(BaseModel):
 # ------------ Endpoints ------------
 @app.get("/metrics")
 def metrics():
-    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+    return Response(generate_latest(PROM_REGISTRY), media_type=CONTENT_TYPE_LATEST)
 
 @app.get("/health")
 def health():
@@ -294,7 +335,7 @@ def health():
 async def search(
     origin: str = Query(..., min_length=3, max_length=5),
     destination: str = Query(..., min_length=3, max_length=5),
-    date: str = Query(..., regex=r"^\d{4}-\d{2}-\d{2}$"),
+    date: str = Query(..., pattern=r"^\d{4}-\d{2}-\d{2}$"),
     passengers: int = Query(1, ge=1, le=8),
     timeout_ms: int = Query(800, ge=200, le=3000),
     top_k: int = Query(20, ge=1, le=50),
@@ -307,18 +348,22 @@ async def search(
         return out
 
     t0 = time.time()
-    tasks = [s.search(origin, destination, date, passengers, timeout_ms) for s in SUPPLIERS if s.breaker.can_call()]
+    active = [s for s in SUPPLIERS if s.breaker.can_call()]
+    tasks = [s.search(origin, destination, date, passengers, timeout_ms) for s in active]
     results = await asyncio.gather(*tasks, return_exceptions=False)
 
     offers: List[Dict[str, Any]] = []
     timings: Dict[str, float] = {}
     status: Dict[str, str] = {}
-    for s, (data, ms, stat) in zip([s for s in SUPPLIERS if s.breaker.can_call()], results):
+    for s, (data, ms, stat) in zip(active, results):
         timings[s.name] = round(ms, 1)
         status[s.name]  = stat
         for off in data:
             off["offer_id"] = offer_id_hash(off)
             offers.append(off)
+            # NEW: index the full offer so /checkout can find it later
+            OFFER_INDEX.set(off["offer_id"], off)
+
 
     offers.sort(key=lambda o: o["score"], reverse=True)
     offers = offers[:top_k]
@@ -332,7 +377,7 @@ async def search(
         "timings_ms": {"total": round((time.time()-t0)*1000.0, 1), **timings},
         "supplier_status": status,
         "cached": False,
-    }
+    }   
     cache_set(key, out, ttl=30)
     return out
 
@@ -357,24 +402,43 @@ async def checkout(payload: CheckoutIn, x_idempotency_key: Optional[str] = Heade
             "message": "idempotent replay"
         }
 
-    dummy_offer = {
-        "offer_id": payload.offer_id,
-        "provider": "Unknown",
-        "price": 49.0,
-        "currency": "EUR",
-        "price_eur": 49.0,
-        "duration_min": 120,
-        "depart_local": "2025-10-02T08:00",
-        "arrive_local": "2025-10-02T10:00",
-        "fare_class": "Standard",
-        "transfers": 0
-    }
-    new = reprice_offer(dummy_offer)
+    # NEW: fetch the exact offer selected in /search
+    selected = OFFER_INDEX.get(payload.offer_id)
+    if selected:
+        base_offer = {
+            "offer_id": payload.offer_id,
+            "provider": selected.get("provider", "Unknown"),
+            "price": selected["price"],                             # EUR price from /search
+            "currency": selected.get("currency", "EUR"),
+            "price_eur": selected.get("price_eur", selected["price"]),
+            "duration_min": selected.get("duration_min", 120),
+            "depart_local": selected.get("depart_local", "2025-10-02T08:00"),
+            "arrive_local": selected.get("arrive_local", "2025-10-02T10:00"),
+            "fare_class": selected.get("fare_class", "Standard"),
+            "transfers": selected.get("transfers", 0),
+        }
+    else:
+        # Fallback if offer not found (expired index): keep old behavior
+        base_offer = {
+            "offer_id": payload.offer_id,
+            "provider": "Unknown",
+            "price": 49.0,
+            "currency": "EUR",
+            "price_eur": 49.0,
+            "duration_min": 120,
+            "depart_local": "2025-10-02T08:00",
+            "arrive_local": "2025-10-02T10:00",
+            "fare_class": "Standard",
+            "transfers": 0
+        }
+
+    # Reprice simulation (unchanged)
+    new = reprice_offer(base_offer)
     record = {
-        "offer": dummy_offer if not new.get("repriced") else {**dummy_offer, "price": new["new_price"], "price_eur": new["new_price_eur"]},
+        "offer": base_offer if not new.get("repriced") else {**base_offer, "price": new["new_price"], "price_eur": new["new_price_eur"]},
         "repriced": new.get("repriced", False),
-        "price_before": new.get("old_price", dummy_offer["price"]),
-        "price_after": new.get("new_price", dummy_offer["price"]),
+        "price_before": new.get("old_price", base_offer["price"]),
+        "price_after": new.get("new_price", base_offer["price"]),
         "ts": time.time()
     }
     holds_set(hold_key, record, ttl=SOFT_HOLD_TTL_SEC)
@@ -384,30 +448,21 @@ async def checkout(payload: CheckoutIn, x_idempotency_key: Optional[str] = Heade
         "repriced": record["repriced"],
         "price_before": record["price_before"],
         "price_after": record["price_after"],
-        "currency": dummy_offer["currency"],
+        "currency": base_offer["currency"],
         "idempotency_key": x_idempotency_key,
         "hold_expires_in_sec": SOFT_HOLD_TTL_SEC,
-        "provider": dummy_offer["provider"],
+        "provider": base_offer["provider"],
         "message": "soft-hold created"
     }
 
 def _pnr_from(offer_id: str, idempotency_key: str) -> str:
     rng = hashlib.sha256(f"{offer_id}|{idempotency_key}".encode()).hexdigest().upper()
     alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
-    return "-".join("".join(alphabet[int(rng[i:i+2],16)%len(alphabet)] for i in range(j, j+8, 2)) for j in range(0, 16, 4))
+    return "-".join(
+        "".join(alphabet[int(rng[i:i+2],16) % len(alphabet)] for i in range(j, j+8, 2))
+        for j in range(0, 16, 4)
+    )
 
-class ConfirmIn(BaseModel):
-    offer_id: str
-    accept_price: float
-    payment_token: str
-
-class ConfirmOut(BaseModel):
-    booking_ref: str
-    offer_id: str
-    final_price: float
-    currency: str
-    idempotency_key: str
-    message: str
 
 @app.post("/confirm", response_model=ConfirmOut)
 async def confirm(payload: ConfirmIn, x_idempotency_key: Optional[str] = Header(None)):
@@ -444,4 +499,5 @@ async def confirm(payload: ConfirmIn, x_idempotency_key: Optional[str] = Header(
 # ------------- main -------------
 if __name__ == "__main__":
     import uvicorn
+    # Avoid double-registration from reloaders
     uvicorn.run("app:app", host="0.0.0.0", port=8001, reload=False)
