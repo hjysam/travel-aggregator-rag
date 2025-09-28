@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-# travel-aggregator-rag\aggregator_app\app.py
+# travel-aggregator-rag/aggregator_app.py
+
 import asyncio, time, random, json, os, hashlib
 from typing import List, Dict, Any, Tuple, Optional
 from fastapi import FastAPI, Query, Header, HTTPException, Request, Response
@@ -9,9 +10,7 @@ from prometheus_client import (
     CollectorRegistry, generate_latest, CONTENT_TYPE_LATEST
 )
 
-app = FastAPI(title="Travel Aggregator Demo "
-""
-"(Obs + Trace)")
+app = FastAPI(title="Travel Aggregator Demo (Obs + Trace)")
 
 # ------------ Config / toggles ------------
 REPRICE_PROB = float(os.getenv("REPRICE_PROB", "0.18"))
@@ -67,7 +66,8 @@ async def add_trace_and_metrics(request: Request, call_next):
         REQ_COUNT.labels(route=route, method=method, code=str(code)).inc()
         REQ_LATENCY.labels(route=route, method=method).observe(time.time() - start)
 
-    response.headers["X-Trace-Id"] = trace_id
+    if response is not None:
+        response.headers["X-Trace-Id"] = trace_id
     return response
 
 # ------------ Utilities: currency & scoring ------------
@@ -98,7 +98,6 @@ class TokenBucket:
             if self.tokens < 1.0:
                 wait = (1.0 - self.tokens) / self.rate
                 await asyncio.sleep(wait)
-                # after waiting, consume one token
                 self.tokens = max(0.0, self.tokens + wait*self.rate - 1.0)
                 self.updated = time.time()
             else:
@@ -170,13 +169,11 @@ class Supplier:
                     "fare_class": rng.choice(["Saver","Standard","Flex"]),
                     "supplier_reliability": round(self.reliability, 2),
                 }
-
-                # 🚩 Normalize to EUR for the demo
+                # Normalize to EUR for demo
                 eur = offer["price_eur"]
                 offer["price"] = eur
                 offer["currency"] = "EUR"
                 offer["price_eur"] = eur
-
                 offer["score"] = score_offer(offer["price_eur"], offer["duration_min"], self.reliability)
                 offers.append(offer)
             self.breaker.on_success()
@@ -200,7 +197,6 @@ class TTLCache:
         self.ttl = ttl_sec
         self.max = max_items
         self._store: Dict[str, Tuple[float, Any]] = {}
-
     def get(self, key: str):
         v = self._store.get(key)
         if not v: return None
@@ -209,7 +205,6 @@ class TTLCache:
             self._store.pop(key, None)
             return None
         return data
-
     def set(self, key: str, value: Any, ttl: Optional[int]=None):
         if len(self._store) >= self.max:
             oldest = sorted(self._store.items(), key=lambda kv: kv[1][0])[0][0]
@@ -238,10 +233,10 @@ def cache_set(key: str, value: Any, ttl: int = 30):
     else:
         SEARCH_CACHE.set(key, value, ttl=ttl)
 
-# ⬇️ Add this line after HOLDS/BOOKINGS definitions (or right after TTLCache)
-OFFER_INDEX = TTLCache(ttl_sec=SOFT_HOLD_TTL_SEC, max_items=10000)
+# ------------ Soft holds & bookings ------------
+HOLDS = TTLCache(ttl_sec=SOFT_HOLD_TTL_SEC, max_items=2048)
+BOOKINGS = TTLCache(ttl_sec=24*3600, max_items=4096)
 
-# ------------ Soft holds & bookings (Redis-backed if available) ------------
 def offer_id_hash(offer: Dict[str, Any]) -> str:
     basis = f"{offer['provider']}|{offer['depart_local']}|{offer['arrive_local']}|{offer['price']}|{offer['currency']}|{offer['fare_class']}|{offer['transfers']}"
     return hashlib.sha256(basis.encode()).hexdigest()[:20]
@@ -280,8 +275,8 @@ def bookings_set(key: str, value: Any):
     else:
         BOOKINGS.set(key, value)
 
-HOLDS = TTLCache(ttl_sec=SOFT_HOLD_TTL_SEC, max_items=2048)
-BOOKINGS = TTLCache(ttl_sec=24*3600, max_items=4096)
+# Index of offers between /search and /checkout (soft)
+OFFER_INDEX = TTLCache(ttl_sec=SOFT_HOLD_TTL_SEC, max_items=10000)
 
 # ------------ API Models ------------
 class SearchOut(BaseModel):
@@ -322,6 +317,41 @@ class ConfirmOut(BaseModel):
     idempotency_key: str
     message: str
 
+# ------------ Export helpers ------------
+EXPORT_DIR = os.getenv("EXPORT_DIR", "exports")
+
+def _ensure_export_dir():
+    os.makedirs(EXPORT_DIR, exist_ok=True)
+
+def _trace_id_from_request(request: Request) -> str:
+    tid = request.headers.get("X-Trace-Id")
+    if tid:
+        return tid
+    basis = f"{time.time()}:{id(request)}:{request.url.path}"
+    return hashlib.sha1(basis.encode()).hexdigest()[:16]
+
+def _export(stage: str, trace_id: str, payload: Dict[str, Any]) -> None:
+    _ensure_export_dir()
+    import datetime
+    ts = datetime.datetime.utcnow().isoformat(timespec="seconds") + "Z"
+    nice = json.dumps(payload, indent=2, ensure_ascii=False)
+    header = f"[{ts}] stage={stage} trace_id={trace_id}"
+    body = f"{header}\n{nice}\n\n"
+    # per-stage file
+    stage_path = os.path.join(EXPORT_DIR, f"{trace_id}_{stage}.txt")
+    with open(stage_path, "w", encoding="utf-8") as f:
+        f.write(body)
+    # session log (append)
+    sess_path = os.path.join(EXPORT_DIR, f"{trace_id}.log.txt")
+    with open(sess_path, "a", encoding="utf-8") as f:
+        f.write(body)
+
+def _to_dict(model: BaseModel) -> Dict[str, Any]:
+    # Pydantic v2 has .model_dump(), v1 has .dict()
+    if hasattr(model, "model_dump"):
+        return model.model_dump()
+    return model.dict()
+
 # ------------ Endpoints ------------
 @app.get("/metrics")
 def metrics():
@@ -333,6 +363,7 @@ def health():
 
 @app.get("/search", response_model=SearchOut)
 async def search(
+    request: Request,
     origin: str = Query(..., min_length=3, max_length=5),
     destination: str = Query(..., min_length=3, max_length=5),
     date: str = Query(..., pattern=r"^\d{4}-\d{2}-\d{2}$"),
@@ -340,11 +371,17 @@ async def search(
     timeout_ms: int = Query(800, ge=200, le=3000),
     top_k: int = Query(20, ge=1, le=50),
 ):
+    trace_id = _trace_id_from_request(request)
+
     key = f"{origin}:{destination}:{date}:{passengers}:{timeout_ms}:{top_k}"
     cached = cache_get(key)
     if cached:
         out = cached.copy()
         out["cached"] = True
+        try:
+            _export("search", trace_id, out)
+        except Exception:
+            pass
         return out
 
     t0 = time.time()
@@ -361,9 +398,7 @@ async def search(
         for off in data:
             off["offer_id"] = offer_id_hash(off)
             offers.append(off)
-            # NEW: index the full offer so /checkout can find it later
             OFFER_INDEX.set(off["offer_id"], off)
-
 
     offers.sort(key=lambda o: o["score"], reverse=True)
     offers = offers[:top_k]
@@ -377,12 +412,20 @@ async def search(
         "timings_ms": {"total": round((time.time()-t0)*1000.0, 1), **timings},
         "supplier_status": status,
         "cached": False,
-    }   
+    }
     cache_set(key, out, ttl=30)
+
+    try:
+        _export("search", trace_id, out)
+    except Exception:
+        pass
+
     return out
 
 @app.post("/checkout", response_model=CheckoutOut)
-async def checkout(payload: CheckoutIn, x_idempotency_key: Optional[str] = Header(None)):
+async def checkout(payload: CheckoutIn, request: Request, x_idempotency_key: Optional[str] = Header(None)):
+    trace_id = _trace_id_from_request(request)
+
     if not x_idempotency_key:
         x_idempotency_key = hashlib.sha1(payload.offer_id.encode()).hexdigest()[:16]
 
@@ -390,7 +433,7 @@ async def checkout(payload: CheckoutIn, x_idempotency_key: Optional[str] = Heade
     exist = holds_get(hold_key)
     if exist:
         ttl = max(0, SOFT_HOLD_TTL_SEC - int(time.time() - exist["ts"]))
-        return {
+        resp = {
             "offer_id": exist["offer"]["offer_id"],
             "repriced": exist["repriced"],
             "price_before": exist["price_before"],
@@ -401,14 +444,18 @@ async def checkout(payload: CheckoutIn, x_idempotency_key: Optional[str] = Heade
             "provider": exist["offer"]["provider"],
             "message": "idempotent replay"
         }
+        try:
+            _export("checkout", trace_id, {"request": _to_dict(payload), "response": resp, "selected_offer": exist["offer"]})
+        except Exception:
+            pass
+        return resp
 
-    # NEW: fetch the exact offer selected in /search
     selected = OFFER_INDEX.get(payload.offer_id)
     if selected:
         base_offer = {
             "offer_id": payload.offer_id,
             "provider": selected.get("provider", "Unknown"),
-            "price": selected["price"],                             # EUR price from /search
+            "price": selected["price"],
             "currency": selected.get("currency", "EUR"),
             "price_eur": selected.get("price_eur", selected["price"]),
             "duration_min": selected.get("duration_min", 120),
@@ -418,7 +465,6 @@ async def checkout(payload: CheckoutIn, x_idempotency_key: Optional[str] = Heade
             "transfers": selected.get("transfers", 0),
         }
     else:
-        # Fallback if offer not found (expired index): keep old behavior
         base_offer = {
             "offer_id": payload.offer_id,
             "provider": "Unknown",
@@ -432,7 +478,6 @@ async def checkout(payload: CheckoutIn, x_idempotency_key: Optional[str] = Heade
             "transfers": 0
         }
 
-    # Reprice simulation (unchanged)
     new = reprice_offer(base_offer)
     record = {
         "offer": base_offer if not new.get("repriced") else {**base_offer, "price": new["new_price"], "price_eur": new["new_price_eur"]},
@@ -443,7 +488,7 @@ async def checkout(payload: CheckoutIn, x_idempotency_key: Optional[str] = Heade
     }
     holds_set(hold_key, record, ttl=SOFT_HOLD_TTL_SEC)
 
-    return {
+    resp = {
         "offer_id": payload.offer_id,
         "repriced": record["repriced"],
         "price_before": record["price_before"],
@@ -455,23 +500,27 @@ async def checkout(payload: CheckoutIn, x_idempotency_key: Optional[str] = Heade
         "message": "soft-hold created"
     }
 
-def _pnr_from(offer_id: str, idempotency_key: str) -> str:
-    rng = hashlib.sha256(f"{offer_id}|{idempotency_key}".encode()).hexdigest().upper()
-    alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
-    return "-".join(
-        "".join(alphabet[int(rng[i:i+2],16) % len(alphabet)] for i in range(j, j+8, 2))
-        for j in range(0, 16, 4)
-    )
+    try:
+        _export("checkout", trace_id, {"request": _to_dict(payload), "response": resp, "selected_offer": base_offer})
+    except Exception:
+        pass
 
+    return resp
 
 @app.post("/confirm", response_model=ConfirmOut)
-async def confirm(payload: ConfirmIn, x_idempotency_key: Optional[str] = Header(None)):
+async def confirm(payload: ConfirmIn, request: Request, x_idempotency_key: Optional[str] = Header(None)):
+    trace_id = _trace_id_from_request(request)
+
     if not x_idempotency_key:
         x_idempotency_key = hashlib.sha1((payload.offer_id + payload.payment_token).encode()).hexdigest()[:16]
 
     booking_key = f"booking:{x_idempotency_key}"
     existing = bookings_get(booking_key)
     if existing:
+        try:
+            _export("confirm", trace_id, {"request": _to_dict(payload), "response": existing, "hold_snapshot": holds_get(f"hold:{x_idempotency_key}")})
+        except Exception:
+            pass
         return existing
 
     hold_key = f"hold:{x_idempotency_key}"
@@ -484,6 +533,14 @@ async def confirm(payload: ConfirmIn, x_idempotency_key: Optional[str] = Header(
     if abs(final_price - float(payload.accept_price)) > 0.01:
         raise HTTPException(status_code=409, detail="Price changed or mismatch. Confirm with updated price.")
 
+    def _pnr_from(offer_id: str, idempotency_key: str) -> str:
+        rng = hashlib.sha256(f"{offer_id}|{idempotency_key}".encode()).hexdigest().upper()
+        alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+        return "-".join(
+            "".join(alphabet[int(rng[i:i+2],16) % len(alphabet)] for i in range(j, j+8, 2))
+            for j in range(0, 16, 4)
+        )
+
     pnr = _pnr_from(payload.offer_id, x_idempotency_key)
     booking = {
         "booking_ref": pnr,
@@ -494,10 +551,15 @@ async def confirm(payload: ConfirmIn, x_idempotency_key: Optional[str] = Header(
         "message": "booking confirmed"
     }
     bookings_set(booking_key, booking)
+
+    try:
+        _export("confirm", trace_id, {"request": _to_dict(payload), "response": booking, "hold_snapshot": hold})
+    except Exception:
+        pass
+
     return booking
 
 # ------------- main -------------
 if __name__ == "__main__":
     import uvicorn
-    # Avoid double-registration from reloaders
     uvicorn.run("app:app", host="0.0.0.0", port=8001, reload=False)

@@ -1,0 +1,35 @@
+[2025-09-28T19:19:10Z] stage=confirm trace_id=1795c24fc0554909
+{
+  "request": {
+    "offer_id": "2b12b3e3f2876f3b9bd2",
+    "accept_price": 43.31,
+    "payment_token": "tok_demo_123"
+  },
+  "response": {
+    "booking_ref": "9R3K-3KU7-U789-89TW",
+    "offer_id": "2b12b3e3f2876f3b9bd2",
+    "final_price": 43.31,
+    "currency": "EUR",
+    "idempotency_key": "2b12b3e3f2876f3b9bd2",
+    "message": "booking confirmed"
+  },
+  "hold_snapshot": {
+    "offer": {
+      "offer_id": "2b12b3e3f2876f3b9bd2",
+      "provider": "RailEuro",
+      "price": 43.31,
+      "currency": "EUR",
+      "price_eur": 43.31,
+      "duration_min": 148,
+      "depart_local": "2025-10-02T14:50",
+      "arrive_local": "2025-10-02T17:18",
+      "fare_class": "Standard",
+      "transfers": 0
+    },
+    "repriced": false,
+    "price_before": 43.31,
+    "price_after": 43.31,
+    "ts": 1759087150.3834362
+  }
+}
+

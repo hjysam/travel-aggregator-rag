@@ -4,4 +4,4 @@ __pycache__/
 .env
 .venv/
 .DS_Store
-information.docx
+*.docx

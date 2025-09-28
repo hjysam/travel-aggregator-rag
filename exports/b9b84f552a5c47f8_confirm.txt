@@ -1,0 +1,35 @@
+[2025-09-28T19:32:17Z] stage=confirm trace_id=b9b84f552a5c47f8
+{
+  "request": {
+    "offer_id": "069a11368329992a9e21",
+    "accept_price": 101.14,
+    "payment_token": "tok_demo_123"
+  },
+  "response": {
+    "booking_ref": "VB8L-8LWD-WDCB-CB7Z",
+    "offer_id": "069a11368329992a9e21",
+    "final_price": 101.14,
+    "currency": "EUR",
+    "idempotency_key": "069a11368329992a9e21",
+    "message": "booking confirmed"
+  },
+  "hold_snapshot": {
+    "offer": {
+      "offer_id": "069a11368329992a9e21",
+      "provider": "BusExpress",
+      "price": 101.14,
+      "currency": "EUR",
+      "price_eur": 101.14,
+      "duration_min": 200,
+      "depart_local": "2025-10-01T21:10",
+      "arrive_local": "2025-10-01T00:30",
+      "fare_class": "Flex",
+      "transfers": 1
+    },
+    "repriced": false,
+    "price_before": 101.14,
+    "price_after": 101.14,
+    "ts": 1759087928.8124895
+  }
+}
+

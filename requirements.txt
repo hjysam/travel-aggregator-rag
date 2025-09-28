@@ -7,3 +7,6 @@ sentence-transformers
 pydantic<3
 openai>=1.43.0
 python-dotenv
+fastapi
+redis>=5.0.0
+prometheus-client>=0.20.0

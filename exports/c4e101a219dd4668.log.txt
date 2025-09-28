@@ -1,0 +1,273 @@
+[2025-09-28T18:43:54Z] stage=search trace_id=c4e101a219dd4668
+{
+  "origin": "PAR",
+  "destination": "LON",
+  "date": "2025-10-01",
+  "passengers": 1,
+  "offers": [
+    {
+      "provider": "BusExpress",
+      "offer_id": "9e5718b936b52ba079d4",
+      "price": 22.63,
+      "currency": "EUR",
+      "price_eur": 22.63,
+      "duration_min": 242,
+      "depart_local": "2025-10-01T09:10",
+      "arrive_local": "2025-10-01T13:12",
+      "transfers": 0,
+      "refundable": false,
+      "fare_class": "Flex",
+      "supplier_reliability": 0.92,
+      "score": 0.6045
+    },
+    {
+      "provider": "BusExpress",
+      "offer_id": "d935ebf135a479494d9c",
+      "price": 34.45,
+      "currency": "EUR",
+      "price_eur": 34.45,
+      "duration_min": 139,
+      "depart_local": "2025-10-01T14:20",
+      "arrive_local": "2025-10-01T16:39",
+      "transfers": 0,
+      "refundable": false,
+      "fare_class": "Flex",
+      "supplier_reliability": 0.92,
+      "score": 0.5862
+    },
+    {
+      "provider": "AirLite",
+      "offer_id": "ebe413fe6548fbfb4c0d",
+      "price": 39.4,
+      "currency": "EUR",
+      "price_eur": 39.4,
+      "duration_min": 408,
+      "depart_local": "2025-10-01T16:00",
+      "arrive_local": "2025-10-01T22:48",
+      "transfers": 1,
+      "refundable": true,
+      "fare_class": "Standard",
+      "supplier_reliability": 0.9,
+      "score": 0.4938
+    },
+    {
+      "provider": "AirLite",
+      "offer_id": "39c91038d4312eef6a61",
+      "price": 70.91,
+      "currency": "EUR",
+      "price_eur": 70.91,
+      "duration_min": 143,
+      "depart_local": "2025-10-01T14:20",
+      "arrive_local": "2025-10-01T16:43",
+      "transfers": 0,
+      "refundable": true,
+      "fare_class": "Saver",
+      "supplier_reliability": 0.9,
+      "score": 0.475
+    },
+    {
+      "provider": "BusExpress",
+      "offer_id": "5587fb8246e7d918a211",
+      "price": 59.27,
+      "currency": "EUR",
+      "price_eur": 59.27,
+      "duration_min": 271,
+      "depart_local": "2025-10-01T19:10",
+      "arrive_local": "2025-10-01T23:41",
+      "transfers": 0,
+      "refundable": false,
+      "fare_class": "Saver",
+      "supplier_reliability": 0.92,
+      "score": 0.4586
+    },
+    {
+      "provider": "BusExpress",
+      "offer_id": "d0667ea2dae2d61633ac",
+      "price": 134.83,
+      "currency": "EUR",
+      "price_eur": 134.83,
+      "duration_min": 65,
+      "depart_local": "2025-10-01T05:50",
+      "arrive_local": "2025-10-01T06:55",
+      "transfers": 0,
+      "refundable": true,
+      "fare_class": "Saver",
+      "supplier_reliability": 0.92,
+      "score": 0.4489
+    },
+    {
+      "provider": "RailEuro",
+      "offer_id": "2f36a191813d90b63d31",
+      "price": 103.73,
+      "currency": "EUR",
+      "price_eur": 103.73,
+      "duration_min": 132,
+      "depart_local": "2025-10-01T05:20",
+      "arrive_local": "2025-10-01T07:32",
+      "transfers": 0,
+      "refundable": false,
+      "fare_class": "Standard",
+      "supplier_reliability": 0.97,
+      "score": 0.435
+    },
+    {
+      "provider": "RailEuro",
+      "offer_id": "3d9d2c7c036465cce481",
+      "price": 95.67,
+      "currency": "EUR",
+      "price_eur": 95.67,
+      "duration_min": 309,
+      "depart_local": "2025-10-01T09:50",
+      "arrive_local": "2025-10-01T14:59",
+      "transfers": 0,
+      "refundable": true,
+      "fare_class": "Standard",
+      "supplier_reliability": 0.97,
+      "score": 0.3869
+    },
+    {
+      "provider": "BusExpress",
+      "offer_id": "20f5c1d18bb59d09b54d",
+      "price": 89.86,
+      "currency": "EUR",
+      "price_eur": 89.86,
+      "duration_min": 370,
+      "depart_local": "2025-10-01T08:00",
+      "arrive_local": "2025-10-01T14:10",
+      "transfers": 0,
+      "refundable": false,
+      "fare_class": "Saver",
+      "supplier_reliability": 0.92,
+      "score": 0.38
+    },
+    {
+      "provider": "AirLite",
+      "offer_id": "e563b7bc3ee0ae3a4123",
+      "price": 169.45,
+      "currency": "EUR",
+      "price_eur": 169.45,
+      "duration_min": 133,
+      "depart_local": "2025-10-01T19:40",
+      "arrive_local": "2025-10-01T21:53",
+      "transfers": 1,
+      "refundable": true,
+      "fare_class": "Standard",
+      "supplier_reliability": 0.9,
+      "score": 0.369
+    }
+  ],
+  "timings_ms": {
+    "total": 332.9,
+    "RailEuro": 177.5,
+    "BusExpress": 254.3,
+    "AirLite": 331.8
+  },
+  "supplier_status": {
+    "RailEuro": "ok",
+    "BusExpress": "ok",
+    "AirLite": "ok"
+  },
+  "cached": false
+}
+
+[2025-09-28T18:44:09Z] stage=checkout trace_id=c4e101a219dd4668
+{
+  "request": {
+    "offer_id": "d935ebf135a479494d9c",
+    "passengers": 1
+  },
+  "response": {
+    "offer_id": "d935ebf135a479494d9c",
+    "repriced": false,
+    "price_before": 34.45,
+    "price_after": 34.45,
+    "currency": "EUR",
+    "idempotency_key": "d935ebf135a479494d9c",
+    "hold_expires_in_sec": 120,
+    "provider": "BusExpress",
+    "message": "soft-hold created"
+  },
+  "selected_offer": {
+    "offer_id": "d935ebf135a479494d9c",
+    "provider": "BusExpress",
+    "price": 34.45,
+    "currency": "EUR",
+    "price_eur": 34.45,
+    "duration_min": 139,
+    "depart_local": "2025-10-01T14:20",
+    "arrive_local": "2025-10-01T16:39",
+    "fare_class": "Flex",
+    "transfers": 0
+  }
+}
+
+[2025-09-28T18:44:09Z] stage=confirm trace_id=c4e101a219dd4668
+{
+  "request": {
+    "offer_id": "d935ebf135a479494d9c",
+    "accept_price": 34.45,
+    "payment_token": "tok_demo_123"
+  },
+  "response": {
+    "booking_ref": "R3YB-YB6H-6HA8-A8YY",
+    "offer_id": "d935ebf135a479494d9c",
+    "final_price": 34.45,
+    "currency": "EUR",
+    "idempotency_key": "d935ebf135a479494d9c",
+    "message": "booking confirmed"
+  },
+  "hold_snapshot": {
+    "offer": {
+      "offer_id": "d935ebf135a479494d9c",
+      "provider": "BusExpress",
+      "price": 34.45,
+      "currency": "EUR",
+      "price_eur": 34.45,
+      "duration_min": 139,
+      "depart_local": "2025-10-01T14:20",
+      "arrive_local": "2025-10-01T16:39",
+      "fare_class": "Flex",
+      "transfers": 0
+    },
+    "repriced": false,
+    "price_before": 34.45,
+    "price_after": 34.45,
+    "ts": 1759085049.0344238
+  }
+}
+
+[2025-09-28T18:44:09Z] stage=confirm trace_id=c4e101a219dd4668
+{
+  "request": {
+    "offer_id": "d935ebf135a479494d9c",
+    "accept_price": 34.45,
+    "payment_token": "tok_demo_123"
+  },
+  "response": {
+    "booking_ref": "R3YB-YB6H-6HA8-A8YY",
+    "offer_id": "d935ebf135a479494d9c",
+    "final_price": 34.45,
+    "currency": "EUR",
+    "idempotency_key": "d935ebf135a479494d9c",
+    "message": "booking confirmed"
+  },
+  "hold_snapshot": {
+    "offer": {
+      "offer_id": "d935ebf135a479494d9c",
+      "provider": "BusExpress",
+      "price": 34.45,
+      "currency": "EUR",
+      "price_eur": 34.45,
+      "duration_min": 139,
+      "depart_local": "2025-10-01T14:20",
+      "arrive_local": "2025-10-01T16:39",
+      "fare_class": "Flex",
+      "transfers": 0
+    },
+    "repriced": false,
+    "price_before": 34.45,
+    "price_after": 34.45,
+    "ts": 1759085049.0344238
+  }
+}
+

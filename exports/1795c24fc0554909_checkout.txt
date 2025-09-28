@@ -1,0 +1,31 @@
+[2025-09-28T19:19:10Z] stage=checkout trace_id=1795c24fc0554909
+{
+  "request": {
+    "offer_id": "2b12b3e3f2876f3b9bd2",
+    "passengers": 1
+  },
+  "response": {
+    "offer_id": "2b12b3e3f2876f3b9bd2",
+    "repriced": false,
+    "price_before": 43.31,
+    "price_after": 43.31,
+    "currency": "EUR",
+    "idempotency_key": "2b12b3e3f2876f3b9bd2",
+    "hold_expires_in_sec": 120,
+    "provider": "RailEuro",
+    "message": "soft-hold created"
+  },
+  "selected_offer": {
+    "offer_id": "2b12b3e3f2876f3b9bd2",
+    "provider": "RailEuro",
+    "price": 43.31,
+    "currency": "EUR",
+    "price_eur": 43.31,
+    "duration_min": 148,
+    "depart_local": "2025-10-02T14:50",
+    "arrive_local": "2025-10-02T17:18",
+    "fare_class": "Standard",
+    "transfers": 0
+  }
+}
+

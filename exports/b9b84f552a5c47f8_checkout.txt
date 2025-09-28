@@ -1,0 +1,31 @@
+[2025-09-28T19:32:08Z] stage=checkout trace_id=b9b84f552a5c47f8
+{
+  "request": {
+    "offer_id": "069a11368329992a9e21",
+    "passengers": 1
+  },
+  "response": {
+    "offer_id": "069a11368329992a9e21",
+    "repriced": false,
+    "price_before": 101.14,
+    "price_after": 101.14,
+    "currency": "EUR",
+    "idempotency_key": "069a11368329992a9e21",
+    "hold_expires_in_sec": 120,
+    "provider": "BusExpress",
+    "message": "soft-hold created"
+  },
+  "selected_offer": {
+    "offer_id": "069a11368329992a9e21",
+    "provider": "BusExpress",
+    "price": 101.14,
+    "currency": "EUR",
+    "price_eur": 101.14,
+    "duration_min": 200,
+    "depart_local": "2025-10-01T21:10",
+    "arrive_local": "2025-10-01T00:30",
+    "fare_class": "Flex",
+    "transfers": 1
+  }
+}
+
